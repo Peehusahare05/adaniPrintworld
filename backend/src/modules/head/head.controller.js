@@ -1,73 +1,75 @@
 const headService = require("./head.service");
 
-exports.dashboard = async(req, res) => {
+exports.getDashboard = async (req, res) => {
     try {
-        const data = await headService.getDashboard(req.user.id);
-        res.json({ success: true, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const stats = await headService.getDashboard(req.user._id);
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.getVerifiedOfficers = async(req, res) => {
+exports.getOfficers = async (req, res) => {
     try {
-        const officers = await headService.getVerifiedOfficers(req.user.id);
-        res.json({ success: true, officers });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const officers = await headService.getOfficers(req.user._id);
+        res.json(officers);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.getUnverifiedOfficers = async(req, res) => {
+exports.getOfficerLots = async (req, res) => {
     try {
-        const officers = await headService.getUnverifiedOfficers(req.user.id);
-        res.json({ success: true, officers });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const lots = await headService.getOfficerLots(req.params.officerId);
+        res.json(lots);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.approveOfficer = async(req, res) => {
+exports.verifyNameplate = async (req, res) => {
     try {
-        const updated = await headService.approveOfficer(req.params.id);
-        res.json({ success: true, officer: updated });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const { status } = req.body; // APPROVED or REJECTED
+        const nameplate = await headService.verifyNameplate(req.params.nameplateId, status);
+        res.json(nameplate);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.rejectOfficer = async(req, res) => {
+exports.verifyLot = async (req, res) => {
     try {
-        await headService.rejectOfficer(req.params.id);
-        res.json({ success: true, message: "Officer rejected & deleted" });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const { status } = req.body; // APPROVED or REJECTED
+        const lot = await headService.verifyLot(req.params.lotId, status);
+        res.json(lot);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.getUnverifiedLots = async(req, res) => {
+exports.getUnverifiedLots = async (req, res) => {
     try {
-        const lots = await headService.getUnverifiedLots(req.user.id);
-        res.json({ success: true, lots });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const lots = await headService.getUnverifiedLots(req.user._id);
+        res.json(lots);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.approveLot = async(req, res) => {
+exports.approveOfficer = async (req, res) => {
     try {
-        const updated = await headService.approveLot(req.params.id);
-        res.json({ success: true, lot: updated });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const officer = await headService.approveOfficer(req.params.officerId);
+        res.json(officer);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.rejectLot = async(req, res) => {
+exports.rejectOfficer = async (req, res) => {
     try {
-        const updated = await headService.rejectLot(req.params.id);
-        res.json({ success: true, lot: updated });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        await headService.rejectOfficer(req.params.officerId);
+        res.json({ message: "Officer rejected" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };

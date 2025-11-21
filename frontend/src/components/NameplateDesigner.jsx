@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { User, Home, MapPin, Palette, ChevronLeft, ChevronRight, Type } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { createNameplate } from "../api/officer";
-
-
+// removed createNameplate import as requested (no API call now)
 
 const TextStyleControls = ({ style, setStyle, fonts, loadFont }) => {
   const colorPalette = [
@@ -146,6 +145,13 @@ const NameplateDesigner = () => {
 
   const [loadedFonts, setLoadedFonts] = useState(new Set(["Inter"]));
 
+  // store the object locally (you wanted a returned object)
+  const [createdNameplate, setCreatedNameplate] = useState(null);
+
+  // NEW: officerId & headId state (try localStorage first)
+  const [officerId, setOfficerId] = useState(localStorage.getItem("officerId") || null);
+  const [headId, setHeadId] = useState(localStorage.getItem("tseId") || localStorage.getItem("headId") || null);
+
   // Popular Google Fonts
   const googleFonts = [
     "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Oswald",
@@ -178,7 +184,7 @@ const NameplateDesigner = () => {
   const loadFont = (fontFamily) => {
     if (!loadedFonts.has(fontFamily)) {
       const link = document.createElement("link");
-      link.href = `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/ /g, "+")}:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap`;
+      link.href = "https://fonts.googleapis.com/css2?family=${fontFamily.replace(/ /g, "+")}:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap";
       link.rel = "stylesheet";
       document.head.appendChild(link);
       setLoadedFonts(new Set([...loadedFonts, fontFamily]));
@@ -196,6 +202,42 @@ const NameplateDesigner = () => {
     setCurrentIndex(0);
   }, [theme]);
 
+  // NEW: fetch profile if IDs missing (minimal)
+  useEffect(() => {
+    const fetchProfileIfNeeded = async () => {
+      if ((officerId && headId) || typeof window === "undefined") return;
+
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const profile = res.data?.data || res.data;
+
+        const fetchedOfficerId = profile._id ?? profile.officerId ?? null;
+        const fetchedHeadId = profile.tseId ?? profile.headId ?? null;
+
+        if (fetchedOfficerId) {
+          setOfficerId(fetchedOfficerId);
+          localStorage.setItem("officerId", fetchedOfficerId);
+        }
+        if (fetchedHeadId) {
+          setHeadId(fetchedHeadId);
+          localStorage.setItem("tseId", fetchedHeadId);
+        }
+      } catch(err) {
+        // non-blocking: just warn
+        console.warn("Could not fetch profile for IDs:", err);
+      }
+    };
+
+    fetchProfileIfNeeded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once; dependencies intentionally empty to keep minimal
+
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   };
@@ -204,27 +246,50 @@ const NameplateDesigner = () => {
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
-  const handleSubmit = async () => {
-    const data = {
-      theme,
+  // ---------- minimal change: build & return object locally (no API) ----------
+const handleSubmit = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("User not logged in");
+      return;
+    }
+
+    const payload = {
       name,
       address,
       houseName,
+      theme,
       selectedImage: images[currentIndex].url,
       nameStyle,
       addressStyle,
       houseStyle
     };
-    console.log("Submitting nameplate - lotno:", lotno, "data:", data);
-    try {
-      await createNameplate(lotno, data);
-      alert("Nameplate saved!");
-    } catch (error) {
-      console.error("Nameplate Error:", error);
-      alert("Failed to save nameplate");
-    }
-  };
-  
+
+    const res = await axios.post(
+      `${import.meta.env.VITE_API_URL}/officer/lot/${lotno}/nameplate`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+
+    setCreatedNameplate(res.data.data);
+
+    console.log("Nameplate saved:", res.data.data);
+    alert("Nameplate Created Successfully");
+
+    return res.data.data;
+
+  } catch (error) {
+    console.error("Error saving nameplate:", error.response?.data || error);
+    alert(error.response?.data?.message || "Failed to create nameplate");
+  }
+};
+
+  // ---------- end minimal change ----------
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center px-4 py-6 md:py-8">
@@ -250,7 +315,7 @@ const NameplateDesigner = () => {
             className="absolute top-10 md:top-10 right-5 md:right-18 drop-shadow-md whitespace-pre-wrap"
             style={{
               color: houseStyle.color,
-              fontSize: `${houseStyle.fontSize}px`,
+              fontSize:` ${houseStyle.fontSize}px`,
               fontWeight: houseStyle.fontWeight,
               fontStyle: houseStyle.fontStyle,
               fontFamily: houseStyle.fontFamily
@@ -382,16 +447,16 @@ const NameplateDesigner = () => {
         )}
 
         {/* Submit Button */}
-        {
-          activeTab == "house" ?<div className="mt-4 md:mt-6 flex justify-center">
-          <button
-            onClick={handleSubmit}
-            className="bg-gray-900 text-white px-6 md:px-8 py-2.5 rounded-xl hover:bg-gray-700 transition-all text-sm md:text-base shadow-md"
-          >
-            Submit Design
-          </button>
-        </div> : null
-        }
+        {activeTab === "house" ? (
+          <div className="mt-4 md:mt-6 flex justify-center">
+            <button
+              onClick={handleSubmit}
+              className="bg-gray-900 text-white px-6 md:px-8 py-2.5 rounded-xl hover:bg-gray-700 transition-all text-sm md:text-base shadow-md"
+            >
+              Submit Design
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* Bottom Navigation */}
@@ -429,6 +494,13 @@ const NameplateDesigner = () => {
           <Home size={16} className="md:w-[18px] md:h-[18px]" /> House Name
         </button>
       </div>
+
+      {/* You can inspect created object here (dev-only) */}
+      {createdNameplate && (
+        <pre className="mt-6 max-w-[700px] w-full bg-gray-100 p-4 rounded-md text-sm overflow-auto">
+          {JSON.stringify(createdNameplate, null, 2)}
+        </pre>
+      )}
     </div>
   );
 };

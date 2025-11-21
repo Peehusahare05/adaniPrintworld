@@ -1,59 +1,49 @@
-const service = require("./officer.service");
+const officerService = require("./officer.service");
+const lotService = require("../lot/lot.service");
 
-exports.dashboard = async(req, res) => {
+exports.getDashboard = async (req, res) => {
     try {
-        const data = await service.getDashboardStats(req.user.id);
-        res.json({ success: true, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        // Assuming req.user contains the authenticated officer's ID
+        const stats = await officerService.getDashboardStats(req.user._id);
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.createLot = async(req, res) => {
+exports.createLot = async (req, res) => {
     try {
-        const data = await service.createLot(req.user.id);
-        res.json({ success: true, data });
-    } catch (err) {
-        res.status(400).json({ success: false, error: err.message });
+        const data = {
+            ...req.body,
+            officerId: req.user._id,
+            tseId: req.user.tseId // Assuming officer has tseId in their profile
+        };
+        const lot = await lotService.createLot(data);
+        res.status(201).json(lot);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
 };
 
-exports.getLots = async(req, res) => {
+exports.getMyLots = async (req, res) => {
     try {
-        const data = await service.getAllLots(req.user.id);
-        res.json({ success: true, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const lots = await lotService.getLots({ officerId: req.user._id });
+        res.json(lots);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
-exports.createNameplate = async(req, res) => {
+exports.createNameplate = async (req, res) => {
     try {
-        const { lotId } = req.params;
-        const data = await service.createNameplate(lotId, req.body);
-        res.json({ success: true, data });
-    } catch (err) {
-        res.status(400).json({ success: false, error: err.message });
-    }
-};
-
-exports.getNameplates = async(req, res) => {
-    try {
-        const { lotId } = req.params;
-        const data = await service.getNameplatesByLot(lotId);
-        res.json({ success: true, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-};
-
-exports.updateStatus = async(req, res) => {
-    try {
-        const { nameplateId } = req.params;
-        const { status } = req.body;
-        const data = await service.updateNameplateStatus(nameplateId, status);
-        res.json({ success: true, data });
-    } catch (err) {
-        res.status(400).json({ success: false, error: err.message });
+        const data = {
+            ...req.body,
+            createdBy: req.user._id,
+            tseId: req.user.tseId
+        };
+        const nameplate = await officerService.createNameplate(data);
+        res.status(201).json(nameplate);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
 };
